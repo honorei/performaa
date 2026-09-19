@@ -1,0 +1,166 @@
+<?php
+require_once __DIR__ . '/../auth.php';
+require_once __DIR__ . '/../firebase_init.php';
+
+require_login();
+require_role('admin');
+require_password_reset('settings.php');
+
+$navItems = [
+  ['label' => 'Dashboard', 'href' => 'admin_dashboard.php', 'active' => true],
+  ['label' => 'User Accounts', 'href' => 'accounts.php', 'active' => false],
+  ['label' => 'System Settings', 'href' => 'settings.php', 'active' => false],
+];
+
+$users = [];
+$auditLog = [];
+try {
+  $users = firestore_list_documents('Users');
+  $auditLog = firestore_list_documents('auditLog');
+} catch (Throwable $e) {
+  $users = is_array($users) ? $users : [];
+  $auditLog = is_array($auditLog) ? $auditLog : [];
+}
+
+$roleCounts = ['employer' => 0, 'supervisor' => 0, 'probationary' => 0];
+foreach ($users as $user) {
+  $role = strtolower((string) ($user['role'] ?? ''));
+  if (strpos($role, 'probation') !== false) {
+    $roleCounts['probationary']++;
+  } elseif (strpos($role, 'employ') !== false) {
+    $roleCounts['employer']++;
+  } elseif (strpos($role, 'supervis') !== false) {
+    $roleCounts['supervisor']++;
+  }
+}
+
+$metrics = [
+  ['label' => 'Total Employer Accounts', 'value' => (string) $roleCounts['employer'], 'badge' => 'Active', 'tone' => 'neutral', 'variant' => 'warm', 'icon' => '◔'],
+  ['label' => 'Total Supervisor Accounts', 'value' => (string) $roleCounts['supervisor'], 'badge' => 'Active', 'tone' => 'neutral', 'variant' => 'gold', 'icon' => '◔'],
+  ['label' => 'Total Probationary Accounts', 'value' => (string) $roleCounts['probationary'], 'badge' => 'Active', 'tone' => 'positive', 'variant' => 'mint', 'icon' => '▣'],
+];
+
+usort($auditLog, static fn(array $a, array $b): int => strcmp((string) ($b['createdAt'] ?? $b['timestamp'] ?? ''), (string) ($a['createdAt'] ?? $a['timestamp'] ?? '')));
+$recentActivity = array_map(static function (array $entry): array {
+  $when = $entry['createdAt'] ?? $entry['timestamp'] ?? $entry['when'] ?? '';
+  $time = $when ? strtotime((string) $when) : false;
+  return [
+    'action' => $entry['action'] ?? $entry['event'] ?? 'System activity',
+    'detail' => $entry['detail'] ?? $entry['description'] ?? $entry['message'] ?? '',
+    'when' => $time ? date('M j, Y g:i A', $time) : (string) $when,
+  ];
+}, array_slice($auditLog, 0, 10));
+?>
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Performa | Admin Dashboard</title>
+  <meta name="description" content="Admin overview of system-wide user accounts and activity." />
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="../ui-refresh.css" />
+</head>
+
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div>
+        <div class="brand">
+          <div class="brand-mark">P</div>
+          <div>
+            <div class="brand-name">Performa</div>
+            <div class="brand-subtitle">Admin Dashboard</div>
+          </div>
+        </div>
+
+        <nav class="nav" aria-label="Primary">
+          <?php foreach ($navItems as $item): ?>
+            <a class="nav-item<?php echo $item['active'] ? ' active' : ''; ?>"
+              href="<?php echo htmlspecialchars($item['href'], ENT_QUOTES); ?>">
+              <span><?php echo htmlspecialchars($item['label'], ENT_QUOTES); ?></span>
+            </a>
+          <?php endforeach; ?>
+        </nav>
+      </div>
+
+      <div class="sidebar-footer">
+        <div class="profile-avatar">AD</div>
+        <div>
+          <div class="profile-name">System Admin</div>
+          <div class="profile-role">Administrator</div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main" id="dashboard">
+      <div class="topbar">
+        <div class="search-bar" aria-hidden="true">&nbsp;</div>
+        <div class="topbar-actions">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div class="profile-name" style="font-weight:700;">System Admin</div>
+            <a class="ghost-button" href="../logout.php"
+              style="text-decoration:none;padding:8px 10px;border-radius:10px;">Sign out</a>
+          </div>
+        </div>
+      </div>
+      <section class="hero">
+        <p class="eyebrow">Admin Overview</p>
+        <h1>Manage user accounts and system-wide settings.</h1>
+      </section>
+
+      <section class="metrics" aria-label="Key dashboard metrics">
+        <?php foreach ($metrics as $metric): ?>
+          <article class="metric-card <?php echo htmlspecialchars($metric['variant'], ENT_QUOTES); ?>">
+            <div class="metric-icon"><?php echo htmlspecialchars($metric['icon'], ENT_QUOTES); ?></div>
+            <div class="metric-meta">
+              <span><?php echo htmlspecialchars($metric['label'], ENT_QUOTES); ?></span>
+              <strong><?php echo htmlspecialchars($metric['value'], ENT_QUOTES); ?></strong>
+            </div>
+            <div class="metric-badge <?php echo htmlspecialchars($metric['tone'], ENT_QUOTES); ?>">
+              <?php echo htmlspecialchars($metric['badge'], ENT_QUOTES); ?>
+            </div>
+          </article>
+        <?php endforeach; ?>
+      </section>
+
+      <section class="content-grid">
+        <div class="panel" style="grid-column: 1 / -1;">
+          <div class="panel-header">
+            <div>
+              <h2>Recent System Activity</h2>
+              <p>Audit log of account changes and configuration updates across the platform.</p>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <div class="table-head"><span>Action</span><span>Detail</span><span>When</span><span></span></div>
+            <?php if (!$recentActivity): ?>
+              <div class="table-row" style="grid-template-columns: 1fr;">
+                <div class="employee-role">No system changes have been recorded yet.</div>
+              </div>
+            <?php else: ?>
+              <?php foreach ($recentActivity as $entry): ?>
+                <div class="table-row" style="grid-template-columns: 1fr 2fr 0.7fr 0.3fr;">
+                  <div class="employee-name"><?php echo htmlspecialchars($entry['action'], ENT_QUOTES); ?></div>
+                  <div class="employee-role"><?php echo htmlspecialchars($entry['detail'], ENT_QUOTES); ?></div>
+                  <div class="timeline-text"><?php echo htmlspecialchars($entry['when'], ENT_QUOTES); ?></div>
+                  <div></div>
+                </div>
+              <?php endforeach; ?>
+            <?php endif; ?>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <footer class="site-footer">
+    <span>Performa admin dashboard prototype</span>
+    <span>System-level access · Account &amp; configuration management</span>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+
+</html>

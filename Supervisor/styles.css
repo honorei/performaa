@@ -1,0 +1,76 @@
+/**
+ * Supervisor module styles — clean extension of the Employer design system.
+ * Core design tokens, layout shell, tables, buttons, metrics, and typography
+ * are inherited directly from Employer/styles.css and ui-refresh.css.
+ */
+
+/* Notification feed styling */
+.notif-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.notif-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 16px 4px;
+  border-bottom: 1px solid var(--panel-border, rgba(27, 39, 62, 0.08));
+  transition: background-color 0.15s ease;
+}
+
+.notif-row:last-child {
+  border-bottom: none;
+}
+
+.notif-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--ui-blue, #245fba);
+  margin-top: 5px;
+  flex-shrink: 0;
+  box-shadow: 0 0 0 3px rgba(36, 95, 186, 0.15);
+}
+
+.notif-dot.read {
+  background: var(--ui-border, #cbd5e1);
+  box-shadow: none;
+}
+
+.notif-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.notif-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ui-text, #0f172a);
+  margin-bottom: 3px;
+}
+
+.notif-detail {
+  font-size: 13px;
+  color: var(--ui-muted, #64748b);
+  line-height: 1.5;
+}
+
+.notif-meta {
+  font-size: 12px;
+  color: var(--ui-muted, #94a3b8);
+  white-space: nowrap;
+  margin-left: 8px;
+}
+
+/* Rating Form Specifics */
+.supervisor-rate-card {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.rate-header-note {
+  font-size: 13px;
+  color: var(--ui-muted, #64748b);
+  margin-bottom: 16px;
+}
